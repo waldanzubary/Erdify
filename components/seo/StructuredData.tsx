@@ -14,7 +14,7 @@ export default function StructuredData() {
         },
         description:
             'Free ERD generator with real-time collaboration. Transform SQL to ER diagrams instantly.',
-        url: 'https://erdify.my.id',
+        url: 'https://www.erdify.my.id',
         featureList: [
             'Free ERD Generator',
             'SQL to ERD Conversion',
@@ -23,15 +23,15 @@ export default function StructuredData() {
             'Auto Layout',
             'Interactive Database Designer',
         ],
-        screenshot: 'https://erdify.my.id/og-image.png',
+        screenshot: 'https://www.erdify.my.id/og-image.png',
     };
 
     const organizationSchema = {
         '@context': 'https://schema.org',
         '@type': 'Organization',
         name: 'ERDify Studio',
-        url: 'https://erdify.my.id',
-        logo: 'https://erdify.my.id/logo.png',
+        url: 'https://www.erdify.my.id',
+        logo: 'https://www.erdify.my.id/logo.png',
         description:
             'ERDify Studio provides free ERD generation and collaboration tools for database designers and developers.',
         sameAs: [
@@ -44,7 +44,7 @@ export default function StructuredData() {
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
         name: 'ERDify Studio - Free ERD Generator',
-        url: 'https://erdify.my.id',
+        url: 'https://www.erdify.my.id',
         description:
             'Free online ERD generator with real-time collaboration, SQL to ERD conversion, and database diagram visualization.',
         applicationCategory: 'BusinessApplication',

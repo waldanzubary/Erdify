@@ -35,14 +35,14 @@ export const metadata: Metadata = {
   authors: [{ name: 'ERDify Studio' }],
   creator: 'ERDify Studio',
   publisher: 'ERDify Studio',
-  metadataBase: new URL('https://erdify.my.id'),
+  metadataBase: new URL('https://www.erdify.my.id'),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://erdify.my.id',
+    url: 'https://www.erdify.my.id',
     title: 'ERDify Studio — Free ERD Generator & Real-Time Collaboration',
     description: 'Free ERD generator with real-time collaboration. Transform SQL to ER diagrams instantly. Perfect for database design and team collaboration.',
     siteName: 'ERDify Studio',

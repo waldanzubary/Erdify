@@ -3,19 +3,19 @@ import { MetadataRoute } from 'next'
 export default function sitemap(): MetadataRoute.Sitemap {
     return [
         {
-            url: 'https://erdify.my.id',
+            url: 'https://www.erdify.my.id',
             lastModified: new Date(),
             changeFrequency: 'weekly',
             priority: 1,
         },
         {
-            url: 'https://erdify.my.id/pricing',
+            url: 'https://www.erdify.my.id/pricing',
             lastModified: new Date(),
             changeFrequency: 'monthly',
             priority: 0.8,
         },
         {
-            url: 'https://erdify.my.id/dashboard',
+            url: 'https://www.erdify.my.id/dashboard',
             lastModified: new Date(),
             changeFrequency: 'weekly',
             priority: 0.7,
