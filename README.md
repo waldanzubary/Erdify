@@ -10,7 +10,7 @@
 
 ---
 
-## ✨ Features
+## ✨ Feature
 
 ### 🎯 Core Features
 - **Free ERD Generator** — Upload SQL files and generate diagrams instantly
