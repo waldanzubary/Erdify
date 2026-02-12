@@ -12,6 +12,7 @@ import {
     CloudUpload,
     MessageSquare,
     UserPlus,
+    Database,
 } from 'lucide-react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
@@ -27,6 +28,7 @@ interface ToolbarProps {
     onAutoLayout: () => void;
     onExportPng: () => void;
     onExportJson: () => void;
+    onExportSql: () => void;
     onUpload: () => void;
     onlineUsers?: OnlineUser[];
     myColor?: string;
@@ -49,6 +51,7 @@ export default function Toolbar({
     onAutoLayout,
     onExportPng,
     onExportJson,
+    onExportSql,
     onUpload,
     onlineUsers = [],
     myColor = '#6366f1',
@@ -243,6 +246,16 @@ export default function Toolbar({
                                 >
                                     <span>Schema JSON</span>
                                     <FileJson size={14} className="text-emerald-400" />
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        onExportSql();
+                                        setShowExport(false);
+                                    }}
+                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)] hover:text-white hover:bg-white/5 transition-all"
+                                >
+                                    <span>Export SQL</span>
+                                    <Database size={14} className="text-purple-400" />
                                 </button>
                             </motion.div>
                         )}

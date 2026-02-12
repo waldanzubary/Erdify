@@ -33,6 +33,7 @@ import { getAutoLayout } from '@/utils/autoLayout';
 import { parseSQL } from '@/utils/sqlParser';
 import { exportToPng } from '@/utils/exportPng';
 import { exportToJson } from '@/utils/exportJson';
+import { exportToSQL } from '@/utils/exportSql';
 
 import TableNode from '@/components/editor/TableNode';
 import NoteNode from '@/components/editor/NoteNode';
@@ -257,6 +258,10 @@ function EditorContent() {
 
     const handleExportJson = useCallback(() => {
         exportToJson(schema, project?.name || 'erdify-schema');
+    }, [schema, project?.name]);
+
+    const handleExportSQL = useCallback(() => {
+        exportToSQL(schema, project?.name || 'erdify-database');
     }, [schema, project?.name]);
 
     const handleAddNote = useCallback(async () => {
@@ -534,6 +539,7 @@ function EditorContent() {
                 onUpload={() => setShowUpload(true)}
                 onExportPng={handleExportPng}
                 onExportJson={handleExportJson}
+                onExportSql={handleExportSQL}
                 onToggleNotes={() => setShowNotes(!showNotes)}
                 onAddNote={handleAddNote}
                 onInvite={() => setShowInvite(true)}
