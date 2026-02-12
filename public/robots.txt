@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/editor/*/
+
+# Sitemap
+Sitemap: https://erdify.my.id/sitemap.xml

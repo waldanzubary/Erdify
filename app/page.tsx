@@ -126,8 +126,8 @@ export default function LandingPage() {
             transition={{ duration: 0.8 }}
             className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight mb-8 leading-[0.95]"
           >
-            Visualize SQL <br />
-            <span className="gradient-text tracking-tighter italic">into perfection</span>.
+            Free ERD Generator <br />
+            <span className="gradient-text tracking-tighter italic">with Real-Time Collaboration</span>
           </motion.h1>
 
           <motion.p
@@ -136,8 +136,8 @@ export default function LandingPage() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-14 font-medium leading-relaxed"
           >
-            The professional standard for entity-relationship mapping.
-            Upload your schema and generate interactive, presentation-ready diagrams in seconds.
+            Transform SQL to ER diagrams instantly with our free online ERD collaboration tool.
+            Design, visualize, and export database schemas with real-time team collaboration.
           </motion.p>
 
           <motion.div
