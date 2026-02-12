@@ -17,20 +17,23 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'ERDify Studio — Free ERD Generator & SQL to ERD Collaboration Tool',
+  title: 'Free SQL to ERD Converter | ERDify Online Tool',
   description:
-    'Free ERD generator with real-time collaboration. Transform SQL to ER diagrams instantly. Design, visualize, and export database schemas with our free online ERD collaboration tool.',
+    'Free SQL to ERD converter. Transform SQL into ER diagrams instantly. Design, visualize & export database schemas with real-time collaboration.',
   keywords: [
-    'ERD generator',
+    'SQL to ERD converter',
     'SQL to ERD free',
-    'ERD collaboration',
-    'ER diagram maker',
-    'database diagram tool',
-    'ERD online free',
+    'free SQL to ERD',
+    'convert SQL to ERD',
+    'SQL to ER diagram',
+    'ERD generator free',
+    'database diagram from SQL',
+    'SQL diagram generator',
+    'ERD maker online',
+    'SQL schema visualizer',
+    'free ERD tool',
     'real-time ERD collaboration',
-    'SQL to ER diagram converter',
-    'database schema visualizer',
-    'free ERD tool'
+    'database design tool'
   ],
   authors: [{ name: 'ERDify Studio' }],
   creator: 'ERDify Studio',
@@ -43,8 +46,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://www.erdify.my.id',
-    title: 'ERDify Studio — Free ERD Generator & Real-Time Collaboration',
-    description: 'Free ERD generator with real-time collaboration. Transform SQL to ER diagrams instantly. Perfect for database design and team collaboration.',
+    title: 'Free SQL to ERD Converter | ERDify',
+    description: 'Free SQL to ERD converter. Transform SQL into ER diagrams instantly with real-time collaboration for database design teams.',
     siteName: 'ERDify Studio',
     images: [
       {
@@ -57,8 +60,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ERDify Studio — Free ERD Generator & Collaboration Tool',
-    description: 'Transform SQL to ER diagrams instantly. Free ERD generator with real-time collaboration for database designers.',
+    title: 'Free SQL to ERD Converter | ERDify',
+    description: 'Free SQL to ERD converter with real-time collaboration. Transform SQL into ER diagrams instantly for database design teams.',
     images: ['/og-image.png'],
     creator: '@erdifystudio',
   },

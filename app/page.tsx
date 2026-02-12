@@ -126,7 +126,7 @@ export default function LandingPage() {
             transition={{ duration: 0.8 }}
             className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight mb-8 leading-[0.95]"
           >
-            Free ERD Generator <br />
+            Free SQL to ERD Converter <br />
             <span className="gradient-text tracking-tighter italic">with Real-Time Collaboration</span>
           </motion.h1>
 
@@ -136,8 +136,8 @@ export default function LandingPage() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-14 font-medium leading-relaxed"
           >
-            Transform SQL to ER diagrams instantly with our free online ERD collaboration tool.
-            Design, visualize, and export database schemas with real-time team collaboration.
+            Convert SQL to ERD diagrams instantly. Our free SQL to ERD converter transforms database schemas
+            into visual ER diagrams with real-time collaboration. Upload SQL, visualize, and export in seconds.
           </motion.p>
 
           <motion.div
@@ -349,10 +349,13 @@ export default function LandingPage() {
       <section id="features" className="py-32 relative">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col items-center text-center mb-24">
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6">Built for scale.</h2>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6">
+              Best Free SQL to ERD Generator Features
+            </h2>
             <p className="text-[var(--text-secondary)] text-lg max-w-2xl leading-relaxed">
-              Every feature is meticulously crafted to handle complex database architectures
-              while maintaining a beautiful, intuitive user experience.
+              Transform SQL to ERD diagrams with our powerful, free converter.
+              Every feature is designed to handle complex database schemas while delivering
+              a beautiful, intuitive experience.
             </p>
           </div>
 
