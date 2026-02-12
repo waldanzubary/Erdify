@@ -12,21 +12,27 @@ export function schemaToFlow(schema: ERSchema): { nodes: Node[]; edges: Edge[] }
         },
     }));
 
-    const edges: Edge[] = schema.relationships.map((rel) => ({
-        id: rel.id,
-        source: rel.sourceTable,
-        target: rel.targetTable,
-        sourceHandle: `${rel.sourceTable}-${rel.sourceColumn}-source`,
-        targetHandle: `${rel.targetTable}-${rel.targetColumn}-target`,
-        type: 'relationshipEdge',
-        data: {
-            sourceColumn: rel.sourceColumn,
-            targetColumn: rel.targetColumn,
-            type: rel.type,
-        },
-        animated: true,
-        style: { stroke: '#6366f1', strokeWidth: 2 },
-    }));
+    const edges: Edge[] = schema.relationships.map((rel) => {
+        // Resolve table names to node IDs
+        const sourceTable = schema.tables.find(t => t.name === rel.sourceTable);
+        const targetTable = schema.tables.find(t => t.name === rel.targetTable);
+
+        return {
+            id: rel.id,
+            source: sourceTable?.id || rel.sourceTable,
+            target: targetTable?.id || rel.targetTable,
+            sourceHandle: `${rel.sourceTable}::${rel.sourceColumn}::source`,
+            targetHandle: `${rel.targetTable}::${rel.targetColumn}::target`,
+            type: 'relationshipEdge',
+            data: {
+                sourceColumn: rel.sourceColumn,
+                targetColumn: rel.targetColumn,
+                type: rel.type,
+            },
+            animated: true,
+            style: { stroke: '#6366f1', strokeWidth: 2 },
+        };
+    });
 
     return { nodes, edges };
 }

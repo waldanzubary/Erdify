@@ -26,15 +26,10 @@ function TableNode({ data, selected }: NodeProps) {
     const { label, columns = [] } = nodeData;
 
     return (
-        <div
-            className={`min-w-[260px] glass rounded-2xl overflow-hidden transition-all duration-300 border ${selected
-                ? 'border-indigo-500/50 shadow-[0_0_40px_rgba(99,102,241,0.2)] ring-1 ring-indigo-500/30'
-                : 'border-white/10 hover:border-white/20'
-                }`}
-        >
+        <div className={`w-64 glass border ${selected ? 'border-white ring-1 ring-white/50' : 'border-white/10'} rounded-3xl shadow-2xl relative group/table`}>
             {/* Table Header */}
-            <div className="px-4 py-3 bg-white/[0.03] border-b border-white/5 flex items-center gap-3">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${selected ? 'bg-indigo-500 text-white' : 'bg-white/5 text-indigo-400'}`}>
+            <div className="px-4 py-3 bg-white/[0.03] border-b border-white/5 flex items-center gap-3 rounded-t-3xl">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${selected ? 'bg-white text-black' : 'bg-white/5 text-white'}`}>
                     <Database size={14} />
                 </div>
                 <div className="flex flex-col min-w-0">
@@ -59,8 +54,8 @@ function TableNode({ data, selected }: NodeProps) {
                         <Handle
                             type="target"
                             position={Position.Left}
-                            id={`${label}-${col.name}-target`}
-                            className="!w-2.5 !h-2.5 !bg-indigo-500 !border-2 !border-[#0d0d0f] !-left-1.25 hover:!scale-125 transition-transform"
+                            id={`${label}::${col.name}::target`}
+                            className="!w-2 !h-2 !bg-white !border-2 !border-[#0d0d0f] !-left-1 hover:!scale-125 hover:!bg-white transition-all shadow-[0_0_6px_rgba(255,255,255,0.4)] !z-50"
                             style={{ top: '50%' }}
                         />
 
@@ -71,7 +66,7 @@ function TableNode({ data, selected }: NodeProps) {
                                     <Key size={10} />
                                 </div>
                             ) : col.isForeignKey ? (
-                                <div className="w-5 h-5 rounded-md bg-indigo-500/10 flex items-center justify-center text-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.2)]">
+                                <div className="w-5 h-5 rounded-md bg-white/10 flex items-center justify-center text-white shadow-[0_0_8px_rgba(255,255,255,0.1)]">
                                     <Link2 size={10} />
                                 </div>
                             ) : (
@@ -96,8 +91,8 @@ function TableNode({ data, selected }: NodeProps) {
                         <Handle
                             type="source"
                             position={Position.Right}
-                            id={`${label}-${col.name}-source`}
-                            className="!w-2.5 !h-2.5 !bg-indigo-500 !border-2 !border-[#0d0d0f] !-right-1.25 hover:!scale-125 transition-transform"
+                            id={`${label}::${col.name}::source`}
+                            className="!w-2 !h-2 !bg-white !border-2 !border-[#0d0d0f] !-right-1 hover:!scale-125 hover:!bg-white transition-all shadow-[0_0_6px_rgba(255,255,255,0.4)] !z-50"
                             style={{ top: '50%' }}
                         />
                     </div>
@@ -105,7 +100,7 @@ function TableNode({ data, selected }: NodeProps) {
             </div>
 
             {/* Subtle footer gradient */}
-            <div className="h-1 bg-gradient-to-r from-transparent via-indigo-500/10 to-transparent" />
+            <div className="h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent rounded-b-3xl" />
         </div>
     );
 }

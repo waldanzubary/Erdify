@@ -16,7 +16,8 @@ import {
     useReactFlow,
     ReactFlowProvider,
     BackgroundVariant,
-    MiniMap
+    MiniMap,
+    ConnectionMode
 } from '@xyflow/react';
 import { supabase } from '@/lib/supabase';
 import { loadProject, saveProject, listNotes, createNote, deleteNote, updateNote, getProjectAccess, updatePublicRole, recordAccess } from '@/lib/db/actions';
@@ -443,8 +444,29 @@ function EditorContent() {
     }, [setProject, broadcastProjectName, updateProjectName]);
 
     const onConnect = useCallback(
-        (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-        [setEdges]
+        (params: Connection) => {
+            if (!params.sourceHandle || !params.targetHandle) return;
+
+            // Handle IDs are in format: Table::Column::source/target
+            const sourceParts = params.sourceHandle.split('::');
+            const targetParts = params.targetHandle.split('::');
+
+            if (sourceParts.length >= 2 && targetParts.length >= 2) {
+                const sourceTable = sourceParts[0];
+                const sourceColumn = sourceParts[1];
+                const targetTable = targetParts[0];
+                const targetColumn = targetParts[1];
+
+                addRelationship({
+                    sourceTable,
+                    sourceColumn,
+                    targetTable,
+                    targetColumn,
+                    type: 'one-to-many', // Default to one-to-many
+                });
+            }
+        },
+        [addRelationship]
     );
 
     const onNodeDrag = useCallback(
@@ -564,6 +586,7 @@ function EditorContent() {
                         nodesDraggable={canEdit}
                         nodesConnectable={canEdit}
                         elementsSelectable={true}
+                        connectionMode={ConnectionMode.Loose}
                     >
                         <LiveCursors cursors={cursors} lastMessages={lastMessages} />
 

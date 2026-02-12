@@ -36,9 +36,9 @@ function RelationshipEdge({
                 path={edgePath}
                 style={{
                     ...style,
-                    stroke: '#818cf8',
+                    stroke: '#ffffff',
                     strokeWidth: 4,
-                    strokeOpacity: 0.1,
+                    strokeOpacity: 0.05,
                 }}
             />
             {/* Main line */}
@@ -47,16 +47,16 @@ function RelationshipEdge({
                 markerEnd={markerEnd}
                 style={{
                     ...style,
-                    stroke: '#6366f1',
+                    stroke: '#ffffff',
                     strokeWidth: 1.5,
-                    strokeOpacity: 0.8,
+                    strokeOpacity: 0.4,
                 }}
             />
             {/* Interactive area */}
             <BaseEdge
                 path={edgePath}
                 style={{
-                    stroke: '#6366f1',
+                    stroke: '#ffffff',
                     strokeWidth: 10,
                     strokeOpacity: 0,
                     cursor: 'pointer',
