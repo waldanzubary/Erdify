@@ -121,8 +121,8 @@ export default function InviteModal({ isOpen, onClose, projectId, publicRole, on
                             onChange={(e) => setInviteRole(e.target.value as 'view' | 'edit')}
                             className="bg-white/5 border border-white/10 rounded-xl px-3 text-[10px] font-bold uppercase tracking-tight text-[var(--text-primary)] outline-none focus:border-indigo-500/50"
                         >
-                            <option value="view">View</option>
-                            <option value="edit">Edit</option>
+                            <option className='text-black' value="view">View</option>
+                            <option  className='text-black' value="edit">Edit</option>
                         </select>
                         <Button
                             size="sm"
