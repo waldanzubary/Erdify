@@ -52,6 +52,9 @@ interface UseRealtimeCollaborationOptions {
     onRemoteNoteChange?: () => void;
     onRemoteNodeMove?: (payload: { nodeId: string; x: number; y: number }) => void;
     onRemoteNameChange?: (name: string) => void;
+    onRemoteFlowchartChange?: (flowchart: { nodes: any[]; edges: any[] }) => void;
+    onRemoteViewModeChange?: (viewMode: 'erd' | 'flowchart') => void;
+    onRemoteProjectUpdate?: (project: any) => void;
 }
 
 export function useRealtimeCollaboration({
@@ -64,6 +67,9 @@ export function useRealtimeCollaboration({
     onRemoteNoteChange,
     onRemoteNodeMove,
     onRemoteNameChange,
+    onRemoteFlowchartChange,
+    onRemoteViewModeChange,
+    onRemoteProjectUpdate,
 }: UseRealtimeCollaborationOptions) {
     const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
     const [cursors, setCursors] = useState<Map<string, CursorPosition>>(new Map());
@@ -73,6 +79,7 @@ export function useRealtimeCollaboration({
     const broadcastChannelRef = useRef<RealtimeChannel | null>(null);
     const dbChannelRef = useRef<RealtimeChannel | null>(null);
     const cursorThrottleRef = useRef<number>(0);
+    const moveThrottleRef = useRef<number>(0);
     const myColor = getColorForUser(userId);
 
     // Store callbacks in refs to avoid reconnecting when they change
@@ -82,7 +89,10 @@ export function useRealtimeCollaboration({
         onRemoteNoteUpdate,
         onRemoteNoteChange,
         onRemoteNodeMove,
-        onRemoteNameChange
+        onRemoteNameChange,
+        onRemoteFlowchartChange,
+        onRemoteViewModeChange,
+        onRemoteProjectUpdate,
     });
 
     useEffect(() => {
@@ -92,9 +102,12 @@ export function useRealtimeCollaboration({
             onRemoteNoteUpdate,
             onRemoteNoteChange,
             onRemoteNodeMove,
-            onRemoteNameChange
+            onRemoteNameChange,
+            onRemoteFlowchartChange,
+            onRemoteViewModeChange,
+            onRemoteProjectUpdate,
         };
-    }, [onRemoteSchemaChange, onRemoteNoteAdd, onRemoteNoteUpdate, onRemoteNoteChange, onRemoteNodeMove, onRemoteNameChange]);
+    }, [onRemoteSchemaChange, onRemoteNoteAdd, onRemoteNoteUpdate, onRemoteNoteChange, onRemoteNodeMove, onRemoteNameChange, onRemoteFlowchartChange, onRemoteViewModeChange, onRemoteProjectUpdate]);
 
     useEffect(() => {
         if (!projectId || !userId) return;
@@ -194,6 +207,18 @@ export function useRealtimeCollaboration({
                 .on('broadcast', { event: 'name-change' }, ({ payload }) => {
                     if (payload.userId === userId || !active) return;
                     handlersRef.current.onRemoteNameChange?.(payload.name);
+                })
+                .on('broadcast', { event: 'flowchart-change' }, ({ payload }) => {
+                    if (payload.userId === userId || !active) return;
+                    handlersRef.current.onRemoteFlowchartChange?.(payload.flowchart);
+                })
+                .on('broadcast', { event: 'view-mode-change' }, ({ payload }) => {
+                    if (payload.userId === userId || !active) return;
+                    handlersRef.current.onRemoteViewModeChange?.(payload.viewMode);
+                })
+                .on('broadcast', { event: 'project-update' }, ({ payload }) => {
+                    if (payload.userId === userId || !active) return;
+                    handlersRef.current.onRemoteProjectUpdate?.(payload.project);
                 });
 
             broadcastChannel.subscribe(async (s) => {
@@ -303,10 +328,63 @@ export function useRealtimeCollaboration({
     const broadcastNodeMove = useCallback(
         (nodeId: string, x: number, y: number) => {
             if (status !== 'CONNECTED' || !broadcastChannelRef.current) return;
+
+            const now = Date.now();
+            if (now - moveThrottleRef.current < 33) return; // ~30fps
+            moveThrottleRef.current = now;
+
             broadcastChannelRef.current.send({
                 type: 'broadcast',
                 event: 'node-move',
                 payload: { userId, nodeId, x, y },
+            });
+        },
+        [userId, status]
+    );
+
+    const broadcastProjectName = useCallback(
+        (name: string) => {
+            if (status !== 'CONNECTED' || !broadcastChannelRef.current) return;
+            broadcastChannelRef.current.send({
+                type: 'broadcast',
+                event: 'name-change',
+                payload: { userId, name },
+            });
+        },
+        [userId, status]
+    );
+
+    const broadcastFlowchartChange = useCallback(
+        (flowchart: { nodes: any[]; edges: any[] }) => {
+            if (status !== 'CONNECTED' || !broadcastChannelRef.current) return;
+            broadcastChannelRef.current.send({
+                type: 'broadcast',
+                event: 'flowchart-change',
+                payload: { userId, flowchart },
+            });
+        },
+        [userId, status]
+    );
+
+    const broadcastViewModeChange = useCallback(
+        (viewMode: 'erd' | 'flowchart') => {
+            if (status !== 'CONNECTED' || !broadcastChannelRef.current) return;
+            broadcastChannelRef.current.send({
+                type: 'broadcast',
+                event: 'view-mode-change',
+                payload: { userId, viewMode },
+            });
+        },
+        [userId, status]
+    );
+
+    const broadcastProjectUpdate = useCallback(
+        (project: any) => {
+            if (status !== 'CONNECTED' || !broadcastChannelRef.current) return;
+            broadcastChannelRef.current.send({
+                type: 'broadcast',
+                event: 'project-update',
+                payload: { userId, project },
             });
         },
         [userId, status]
@@ -324,16 +402,9 @@ export function useRealtimeCollaboration({
         broadcastNoteAdd,
         broadcastNoteUpdate,
         broadcastNodeMove,
-        broadcastProjectName: useCallback(
-            (name: string) => {
-                if (status !== 'CONNECTED' || !broadcastChannelRef.current) return;
-                broadcastChannelRef.current.send({
-                    type: 'broadcast',
-                    event: 'name-change',
-                    payload: { userId, name },
-                });
-            },
-            [userId, status]
-        ),
+        broadcastProjectName,
+        broadcastFlowchartChange,
+        broadcastViewModeChange,
+        broadcastProjectUpdate,
     };
 }

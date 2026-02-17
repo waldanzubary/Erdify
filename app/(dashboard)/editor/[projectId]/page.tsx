@@ -112,6 +112,9 @@ function EditorContent() {
 
     const handlePublicRoleChange = async (role: 'view' | 'edit') => {
         await updatePublicRole(projectId, role);
+        const updatedProject = { ...project, publicRole: role };
+        setProject(updatedProject);
+        broadcastProjectUpdate(updatedProject);
     };
 
     const nodeTypes = useMemo(
@@ -164,18 +167,29 @@ function EditorContent() {
     }, []);
 
     const handleRemoteNodeMove = useCallback(({ nodeId, x, y }: { nodeId: string; x: number; y: number }) => {
-        setNodes((nds) =>
-            nds.map((node) => {
-                if (node.id === nodeId) {
-                    return { ...node, position: { x, y } };
-                }
-                return node;
-            })
-        );
-    }, [setNodes]);
+        setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, position: { x, y } } : node));
+        setFlowNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, position: { x, y } } : node));
+    }, [setNodes, setFlowNodes]);
 
     const handleRemoteNameChange = useCallback((name: string) => {
         setProject((prev: any) => prev ? { ...prev, name } : prev);
+    }, [setProject]);
+
+    const handleRemoteFlowchartChange = useCallback((flowchart: any) => {
+        isRemoteUpdateRef.current = true;
+        if (flowchart.nodes) setFlowNodes(flowchart.nodes);
+        if (flowchart.edges) setFlowEdges(flowchart.edges);
+        setTimeout(() => {
+            isRemoteUpdateRef.current = false;
+        }, 100);
+    }, [setFlowNodes, setFlowEdges]);
+
+    const handleRemoteViewModeChange = useCallback((mode: 'erd' | 'flowchart') => {
+        setViewMode(mode);
+    }, []);
+
+    const handleRemoteProjectUpdate = useCallback((updatedProject: any) => {
+        setProject(updatedProject);
     }, [setProject]);
 
     // Realtime collaboration
@@ -192,6 +206,9 @@ function EditorContent() {
         broadcastNoteUpdate,
         broadcastNodeMove,
         broadcastProjectName,
+        broadcastFlowchartChange,
+        broadcastViewModeChange,
+        broadcastProjectUpdate,
     } = useRealtimeCollaboration({
         projectId,
         userId: user?.id || '',
@@ -202,6 +219,9 @@ function EditorContent() {
         onRemoteNoteChange: loadNotes,
         onRemoteNodeMove: handleRemoteNodeMove,
         onRemoteNameChange: handleRemoteNameChange,
+        onRemoteFlowchartChange: handleRemoteFlowchartChange,
+        onRemoteViewModeChange: handleRemoteViewModeChange,
+        onRemoteProjectUpdate: handleRemoteProjectUpdate,
     });
     // Initialize from project
     useEffect(() => {
@@ -226,7 +246,15 @@ function EditorContent() {
                 broadcastSchemaChange(schema);
             }
         }
-    }, [schema, initialized, autoSave, broadcastSchemaChange, flowNodes, flowEdges]);
+    }, [schema, initialized, autoSave, broadcastSchemaChange]);
+
+    // Separate broadcast for flowchart structure (less frequent)
+    useEffect(() => {
+        if (initialized && !isRemoteUpdateRef.current) {
+            broadcastFlowchartChange({ nodes: flowNodes, edges: flowEdges });
+        }
+    }, [flowEdges, initialized, broadcastFlowchartChange]); // Only edges or initial load trigger structural broadcast
+
 
     // Track cursor movement on the canvas
     const handleMouseMove = useCallback(
@@ -577,9 +605,15 @@ function EditorContent() {
             } else if (node.type === 'tableNode') {
                 updateTablePosition(node.id, node.position.x, node.position.y);
                 // Schema auto-save is triggered by the schema useEffect
+            } else if (node.type === 'flowchartNode') {
+                // For flowchart nodes, the movement broadcast is handled by onNodeDrag (real-time)
+                // Here we just ensure the final state is broadcasted and saved
+                if (!isRemoteUpdateRef.current) {
+                    broadcastFlowchartChange({ nodes: flowNodes, edges: flowEdges });
+                }
             }
         },
-        [updateTablePosition]
+        [updateTablePosition, flowNodes, flowEdges, broadcastFlowchartChange]
     );
 
     const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
@@ -631,7 +665,10 @@ function EditorContent() {
                 canEdit={canEdit}
                 status={status}
                 viewMode={viewMode}
-                onViewModeChange={setViewMode}
+                onViewModeChange={(mode) => {
+                    setViewMode(mode);
+                    broadcastViewModeChange(mode);
+                }}
                 onGenerateFlowchart={handleGenerateFlowchart}
                 isGeneratingFlowchart={isGeneratingFlowchart}
             />
@@ -676,6 +713,7 @@ function EditorContent() {
                         onConnect={canEdit ? onConnect : undefined}
                         nodeTypes={nodeTypes}
                         edgeTypes={edgeTypes}
+                        onNodeDrag={canEdit ? onNodeDrag : undefined}
                         onNodeDragStop={canEdit ? onNodeDragStop : undefined}
                         onNodeClick={onNodeClick}
                         onPaneClick={onPaneClick}
