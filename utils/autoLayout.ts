@@ -21,9 +21,19 @@ export function getAutoLayout(
     });
 
     nodes.forEach((node) => {
-        const columnCount = (node.data as any)?.columns?.length || 3;
-        const height = NODE_HEIGHT_BASE + columnCount * COLUMN_HEIGHT;
-        g.setNode(node.id, { width: NODE_WIDTH, height });
+        let width = NODE_WIDTH;
+        let height = NODE_HEIGHT_BASE;
+
+        if (node.type === 'flowchartNode') {
+            const flowType = node.data?.type;
+            width = flowType === 'decision' ? 120 : flowType === 'data' ? 160 : 150;
+            height = flowType === 'decision' ? 120 : 80;
+        } else {
+            const columnCount = (node.data as any)?.columns?.length || 3;
+            height = NODE_HEIGHT_BASE + columnCount * COLUMN_HEIGHT;
+        }
+
+        g.setNode(node.id, { width, height });
     });
 
     edges.forEach((edge) => {

@@ -11,7 +11,7 @@ export function exportToSQL(schema: ERSchema, projectName: string = 'database'):
 /**
  * Generate SQL CREATE TABLE statements from schema
  */
-function generateSQL(schema: ERSchema): string {
+export function generateSQL(schema: ERSchema): string {
     const sqlStatements: string[] = [];
 
     // Add header comment

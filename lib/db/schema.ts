@@ -1,10 +1,12 @@
 import { pgTable, text, timestamp, jsonb, uuid, real } from 'drizzle-orm/pg-core';
+import type { ERSchema } from '../types';
 
 export const projects = pgTable('projects', {
     id: uuid('id').defaultRandom().primaryKey(),
     name: text('name').notNull(),
     description: text('description'),
-    schema: jsonb('schema').notNull(),
+    schema: jsonb('schema').$type<ERSchema>().notNull(),
+    flowchart: jsonb('flowchart').$type<{ nodes: any[]; edges: any[] }>(),
     userId: text('user_id').notNull(),
     publicRole: text('public_role').default('view').notNull(), // 'view' or 'edit'
     createdAt: timestamp('created_at').defaultNow().notNull(),

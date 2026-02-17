@@ -13,6 +13,7 @@ import {
     MessageSquare,
     UserPlus,
     Database,
+    Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
@@ -41,6 +42,10 @@ interface ToolbarProps {
     projectId?: string;
     currentUserColor?: string;
     canEdit?: boolean;
+    viewMode?: 'erd' | 'flowchart';
+    onViewModeChange?: (mode: 'erd' | 'flowchart') => void;
+    onGenerateFlowchart?: () => void;
+    isGeneratingFlowchart?: boolean;
 }
 
 export default function Toolbar({
@@ -64,6 +69,10 @@ export default function Toolbar({
     projectId,
     currentUserColor,
     canEdit = false,
+    viewMode = 'erd',
+    onViewModeChange,
+    onGenerateFlowchart,
+    isGeneratingFlowchart = false,
 }: ToolbarProps) {
     const [showExport, setShowExport] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -137,6 +146,42 @@ export default function Toolbar({
 
             {/* Center: Presence Avatars & Invite */}
             <div className="flex items-center gap-4">
+                {/* View Mode Toggle */}
+                <div className="flex p-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg">
+                    <button
+                        onClick={() => onViewModeChange?.('erd')}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${viewMode === 'erd'
+                            ? 'bg-indigo-500 text-white shadow-lg'
+                            : 'text-[var(--text-muted)] hover:text-white'
+                            }`}
+                    >
+                        ERD
+                    </button>
+                    <button
+                        onClick={() => onViewModeChange?.('flowchart')}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${viewMode === 'flowchart'
+                            ? 'bg-indigo-500 text-white shadow-lg'
+                            : 'text-[var(--text-muted)] hover:text-white'
+                            }`}
+                    >
+                        Flowchart
+                    </button>
+                </div>
+
+                {viewMode === 'flowchart' && (
+                    <button
+                        onClick={onGenerateFlowchart}
+                        disabled={isGeneratingFlowchart}
+                        className="flex items-center gap-2 px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-indigo-400 rounded-xl transition-all disabled:opacity-50"
+                    >
+                        <Sparkles size={14} className={isGeneratingFlowchart ? 'animate-pulse' : ''} />
+                        <span className="text-xs font-bold">
+                            {isGeneratingFlowchart ? 'Generating...' : 'Regenerate'}
+                        </span>
+                    </button>
+                )}
+                <div className="w-px h-6 bg-white/5" />
+
                 <PresenceAvatars users={onlineUsers} myColor={myColor} />
                 <div className="w-px h-6 bg-white/5" />
                 {canEdit && (

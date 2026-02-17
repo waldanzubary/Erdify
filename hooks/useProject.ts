@@ -58,7 +58,7 @@ export function useProject(projectId: string) {
 
     // Auto-save with debounce
     const autoSave = useCallback(
-        (schema: ERSchema) => {
+        (schema: ERSchema, flowchart?: { nodes: any[]; edges: any[] }) => {
             if (!projectId) return;
 
             if (saveTimeoutRef.current) {
@@ -68,7 +68,7 @@ export function useProject(projectId: string) {
             saveTimeoutRef.current = setTimeout(async () => {
                 setSaving(true);
                 try {
-                    await saveProject(projectId, { schema });
+                    await saveProject(projectId, { schema, flowchart });
                     setLastSaved(new Date());
                 } catch (err) {
                     console.error('Auto-save failed', err);

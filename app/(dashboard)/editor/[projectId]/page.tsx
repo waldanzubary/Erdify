@@ -33,11 +33,12 @@ import { getAutoLayout } from '@/utils/autoLayout';
 import { parseSQL } from '@/utils/sqlParser';
 import { exportToPng } from '@/utils/exportPng';
 import { exportToJson } from '@/utils/exportJson';
-import { exportToSQL } from '@/utils/exportSql';
+import { exportToSQL, generateSQL } from '@/utils/exportSql';
 
 import TableNode from '@/components/editor/TableNode';
 import NoteNode from '@/components/editor/NoteNode';
 import RelationshipEdge from '@/components/editor/RelationshipEdge';
+import FlowchartNode from '@/components/editor/FlowchartNode';
 import Sidebar from '@/components/editor/Sidebar';
 import Toolbar from '@/components/editor/Toolbar';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -79,6 +80,12 @@ function EditorContent() {
     const [initialized, setInitialized] = useState(false);
     const [canEdit, setCanEdit] = useState(false);
 
+    // Flowchart State
+    const [viewMode, setViewMode] = useState<'erd' | 'flowchart'>('erd');
+    const [flowNodes, setFlowNodes, onFlowNodesChange] = useNodesState<Node>([]);
+    const [flowEdges, setFlowEdges, onFlowEdgesChange] = useEdgesState<Edge>([]);
+    const [isGeneratingFlowchart, setIsGeneratingFlowchart] = useState(false);
+
     const flowRef = useRef<HTMLDivElement>(null);
     const isRemoteUpdateRef = useRef(false);
     const { screenToFlowPosition, getViewport } = useReactFlow();
@@ -108,7 +115,7 @@ function EditorContent() {
     };
 
     const nodeTypes = useMemo(
-        () => ({ tableNode: TableNode, noteNode: NoteNode }),
+        () => ({ tableNode: TableNode, noteNode: NoteNode, flowchartNode: FlowchartNode }),
         []
     );
     const edgeTypes = useMemo(
@@ -200,6 +207,10 @@ function EditorContent() {
     useEffect(() => {
         if (project && !initialized) {
             replaceSchema(project.schema);
+            if (project.flowchart) {
+                setFlowNodes(project.flowchart.nodes || []);
+                setFlowEdges(project.flowchart.edges || []);
+            }
             setInitialized(true);
         }
     }, [project, initialized, replaceSchema]);
@@ -209,13 +220,13 @@ function EditorContent() {
     // Auto-save on schema change + broadcast to collaborators
     useEffect(() => {
         if (initialized && schema.tables.length >= 0) {
-            autoSave(schema);
+            autoSave(schema, { nodes: flowNodes, edges: flowEdges });
             // Only broadcast if this is a local change
             if (!isRemoteUpdateRef.current) {
                 broadcastSchemaChange(schema);
             }
         }
-    }, [schema, initialized, autoSave, broadcastSchemaChange]);
+    }, [schema, initialized, autoSave, broadcastSchemaChange, flowNodes, flowEdges]);
 
     // Track cursor movement on the canvas
     const handleMouseMove = useCallback(
@@ -231,24 +242,90 @@ function EditorContent() {
     );
 
 
+    const handleGenerateFlowchart = useCallback(async (arg?: string | any) => {
+        const isManual = typeof arg === 'string';
+        const sqlContent = isManual ? arg : generateSQL(schema);
+
+        if (!sqlContent || (schema.tables.length === 0 && !isManual)) {
+            console.log('No content to generate flowchart from');
+            return;
+        }
+
+        setIsGeneratingFlowchart(true);
+        setViewMode('flowchart');
+
+        try {
+            console.log('Requesting flowchart generation with content length:', sqlContent.length);
+            console.log('SQL Content Snippet:', sqlContent.substring(0, 50) + '...');
+
+            const res = await fetch('/api/generate-flowchart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sql: sqlContent }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({ details: 'Could not parse error JSON' }));
+                console.error('API Error Response:', res.status, errData);
+                throw new Error(errData.details || errData.error || res.statusText);
+            }
+
+            const data = await res.json();
+            console.log('Flowchart Data Received:', data);
+
+            if (data.nodes && data.edges) {
+                const newFlowNodes = data.nodes.map((n: any) => ({
+                    id: n.id,
+                    type: 'flowchartNode',
+                    position: { x: 0, y: 0 },
+                    data: { label: n.label, type: n.type }
+                }));
+
+                const newFlowEdges = data.edges
+                    .filter((e: any) => newFlowNodes.some((n: any) => n.id === e.source) && newFlowNodes.some((n: any) => n.id === e.target))
+                    .map((e: any) => ({
+                        id: e.id,
+                        source: e.source,
+                        target: e.target,
+                        label: e.label,
+                        animated: true,
+                        style: { stroke: '#818cf8' },
+                    }));
+
+                const { nodes: layoutedFlowNodes } = getAutoLayout(newFlowNodes, newFlowEdges);
+                setFlowNodes(layoutedFlowNodes);
+                setFlowEdges(newFlowEdges);
+            }
+        } catch (error: any) {
+            console.error('Failed to generate flowchart:', error);
+            alert(`Failed to generate flowchart: ${error.message}`);
+        } finally {
+            setIsGeneratingFlowchart(false);
+        }
+    }, [schema, setFlowNodes, setFlowEdges]);
+
     const handleUpload = useCallback(
-        (content: string, _filename: string) => {
+        async (content: string, _filename: string) => {
             try {
                 const parsed = parseSQL(content);
                 replaceSchema(parsed);
                 setShowUpload(false);
 
-                // Auto-layout after parse
+                // Auto-layout ERD
                 setTimeout(() => {
                     const { nodes: n, edges: e } = schemaToFlow(parsed);
                     const { nodes: layouted } = getAutoLayout(n, e);
                     setNodes(layouted);
                 }, 100);
+
+                // Generate Flowchart automatically after upload
+                handleGenerateFlowchart(content);
+
             } catch (err: any) {
                 alert(err.message || 'Failed to parse SQL');
             }
         },
-        [replaceSchema, setNodes]
+        [replaceSchema, setNodes, handleGenerateFlowchart]
     );
 
     const handleExportPng = useCallback(() => {
@@ -553,6 +630,10 @@ function EditorContent() {
                 currentUserColor={myColor}
                 canEdit={canEdit}
                 status={status}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onGenerateFlowchart={handleGenerateFlowchart}
+                isGeneratingFlowchart={isGeneratingFlowchart}
             />
 
             <div className="flex-1 flex overflow-hidden relative">
@@ -576,11 +657,22 @@ function EditorContent() {
                     className="flex-1 relative"
                     onMouseMove={handleMouseMove}
                 >
+                    {isGeneratingFlowchart && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                            <div className="flex flex-col items-center gap-4 p-6 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl">
+                                <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                <div className="text-center">
+                                    <p className="text-white font-semibold">Generating AI Flowchart...</p>
+                                    <p className="text-xs text-white/50 mt-1">Analyzing SQL structure with Gemini</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <ReactFlow
-                        nodes={nodes}
-                        edges={edges}
-                        onNodesChange={canEdit ? onNodesChange : undefined}
-                        onEdgesChange={canEdit ? onEdgesChange : undefined}
+                        nodes={viewMode === 'erd' ? nodes : flowNodes}
+                        edges={viewMode === 'erd' ? edges : flowEdges}
+                        onNodesChange={canEdit ? (viewMode === 'erd' ? onNodesChange : onFlowNodesChange) : undefined}
+                        onEdgesChange={canEdit ? (viewMode === 'erd' ? onEdgesChange : onFlowEdgesChange) : undefined}
                         onConnect={canEdit ? onConnect : undefined}
                         nodeTypes={nodeTypes}
                         edgeTypes={edgeTypes}
@@ -590,7 +682,7 @@ function EditorContent() {
                         fitView
                         id="er-canvas"
                         nodesDraggable={canEdit}
-                        nodesConnectable={canEdit}
+                        nodesConnectable={canEdit && viewMode === 'erd'}
                         elementsSelectable={true}
                         connectionMode={ConnectionMode.Loose}
                     >

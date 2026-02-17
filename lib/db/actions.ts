@@ -27,7 +27,7 @@ export async function loadProject(projectId: string) {
 
 export async function saveProject(
     projectId: string,
-    data: Partial<{ name: string; description: string; schema: ERSchema }>
+    data: Partial<{ name: string; description: string; schema: ERSchema; flowchart: { nodes: any[]; edges: any[] } }>
 ) {
     await db.update(projects).set({
         ...data,
