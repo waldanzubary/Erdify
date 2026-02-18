@@ -131,9 +131,8 @@ If you find ERDify Studio helpful, please give it a ⭐ on GitHub!
 ## 📧 Contact
 
 - **Website:** [www.erdify.my.id](https://www.erdify.my.id)
-- **GitHub:** [@yourusername](https://github.com/yourusername)
-- **Twitter:** [@erdifystudio](https://twitter.com/erdifystudio)
+
 
 ---
 
-Built with ❤️ by the ERDify Studio team
+Built with ❤️ by the Waldan Zubary
