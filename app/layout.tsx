@@ -39,8 +39,19 @@ export const metadata: Metadata = {
   creator: 'ERDify Studio',
   publisher: 'ERDify Studio',
   metadataBase: new URL('https://www.erdify.my.id'),
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
   alternates: {
-    canonical: '/',
+    canonical: './',
+  },
+  verification: {
+    google: 'google-site-verification-code', // TODO: Add your Google verification code
+    other: {
+      'msvalidate.01': 'bing-verification-code', // TODO: Add your Bing verification code
+    },
   },
   openGraph: {
     type: 'website',
