@@ -35,24 +35,33 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: usageCheck.reason, limitReached: true }, { status: 429 });
         }
 
-        const { schema, rowCount } = await req.json() as { schema: ERSchema; rowCount: number };
+        const { schema, rowCount, lastIds, existingData } = await req.json() as {
+            schema: ERSchema;
+            rowCount: number;
+            lastIds?: Record<string, any>;
+            existingData?: Record<string, any[]>;
+        };
 
         if (!schema || !schema.tables || schema.tables.length === 0) {
             return NextResponse.json({ error: 'Schema with at least one table is required' }, { status: 400 });
         }
 
-        // Enforce rowCount limit based on plan
         const userPlan = usageCheck.plan;
         const limits = PLAN_LIMITS[userPlan.role as PlanRole] || PLAN_LIMITS.free;
-        const maxRows = limits.maxDummyRows === -1 ? 5000 : limits.maxDummyRows;
-        const clampedRowCount = Math.min(rowCount || 10, maxRows);
+
+        // RELAXED: Total Row Clamping
+        // Goal: Total rows across all tables should not exceed ~150 to balance density and stability
+        const TOTAL_SAFE_ROWS = 150;
+        const tableCount = schema.tables.length;
+        const rowsPerTableLimit = Math.max(2, Math.floor(TOTAL_SAFE_ROWS / tableCount));
+        const clampedRowCount = Math.min(rowCount || 10, rowsPerTableLimit, 50);
 
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             return NextResponse.json({ error: 'Gemini API key is not configured' }, { status: 500 });
         }
 
-        // Build schema summary for the prompt
+        // Build schema summary
         const schemaSummary = schema.tables.map(table => {
             const cols = table.columns.map(col => {
                 const refInfo = col.references ? ` REFERENCES ${col.references.table}(${col.references.column})` : '';
@@ -66,97 +75,122 @@ export async function POST(req: Request) {
             return `TABLE: ${table.name}\n${cols}`;
         }).join('\n\n');
 
+        let appendContext = '';
+        if (lastIds && Object.keys(lastIds).length > 0) {
+            appendContext = `
+IMPORTANT (APPEND MODE):
+1. START PRIMARY KEYS (INT) FROM:
+${Object.entries(lastIds).map(([tbl, val]) => `   - ${tbl}: Start from ${val}`).join('\n')}
+
+2. DATA UNIQUENESS:
+   - Ensure new data is DIFFERENT from existing data I already have.
+   - Avoid repeating names, emails, or titles that appear in the sample below.
+`;
+        }
+
+        if (existingData && Object.keys(existingData).length > 0) {
+            appendContext += `
+SAMPLE OF EXISTING DATA (Reference only, do NOT repeat these):
+${JSON.stringify(existingData, null, 2)}
+`;
+        }
+
         const prompt = `
-You are an expert database engineer and data generator.
+You are a database expert. Generate ${clampedRowCount} rows of realistic dummy data for the following database schema.
+${appendContext}
 
-Given the following database schema, generate realistic dummy data for ALL tables with exactly ${clampedRowCount} rows per table (or fewer if it's a lookup/enum-style table).
+Return ONLY a valid JSON object (no markdown, no explanation, no code blocks):
+{ "tableName": [{ "col1": val1, ... }], ... }
 
-IMPORTANT RULES:
-1. Generate data that looks REAL and contextually appropriate based on table and column NAMES.
-   - If a table is called "users", generate realistic names, emails, dates.
-   - If a column is called "email", generate actual email addresses like john@gmail.com.
-   - If a column is "phone", generate formatted phone numbers.
-   - If a column is "status", use values like 'active', 'inactive', 'pending'.
-   - If a column is "price" or "amount", generate realistic numbers with decimals.
-   - timestamps should look like real ISO dates (e.g. "2024-03-15 10:23:45").
-2. Respect relationships: if table B has a FK to table A's primary key, the FK values in B must exist in A's generated data.
-3. Primary keys (INT/BIGINT) start from 1 and increment. UUID PKs should be valid UUID v4 strings.
-4. VARCHAR/TEXT should have values appropriate in length (not just "Lorem ipsum").
-5. BOOLEAN: use true/false (no quotes).
-6. Numeric values: no quotes. String values: no quotes needed in JSON.
-7. Use a mix of Indonesian and international names/values where appropriate.
+RULES:
+- GENERATE EXACTLY ${clampedRowCount} rows per table.
+- DATA MUST BE EXTREMELY SUCCINCT: Use very short strings (max 20 chars).
+- Realistic data: names, emails, dates, phone numbers.
+- Foreign key values MUST reference values in parent table.
+- Integer PKs start from 1 and increment (unless specified otherwise above).
+- Booleans: true/false. Numbers: no quotes.
+- Ensure the JSON is valid and COMPLETE.
 
 DATABASE SCHEMA:
 ${schemaSummary}
 
-Return ONLY a valid JSON object with this structure:
-{
-  "tableName1": [
-    { "column1": value1, "column2": value2 },
-    ...
-  ],
-  "tableName2": [...]
-}
-
-Generate exactly ${clampedRowCount} rows per table unless the table is a reference/lookup table.
-Return ONLY the raw JSON object, no markdown code blocks, no explanation.
+Return ONLY the raw JSON object.
 `;
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Same model list as generate-flowchart which is already working
         const modelsToTry = [
             'gemini-2.0-flash',
-            'gemini-2.5-flash',
-            'gemini-flash-latest',
             'gemini-1.5-flash',
-            'gemini-1.5-pro',
+            'gemini-flash-latest',
+            'gemini-pro-latest',
         ];
 
         let text = '';
-        const modelErrors: string[] = [];
+        let lastError = '';
+
         for (const modelName of modelsToTry) {
             try {
-                console.log(`Trying model: ${modelName}`);
-                const model = genAI.getGenerativeModel({ model: modelName });
+                console.log(`[DUMMY] Trying model: ${modelName}`);
+                const model = genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: {
+                        maxOutputTokens: 8192, // Increased to prevent truncation
+                        temperature: 0.8,
+                        topP: 0.95,
+                    }
+                });
                 const result = await model.generateContent(prompt);
-                text = result.response.text();
+                const response = await result.response;
+                text = response.text();
                 if (text) {
-                    console.log(`Success with model: ${modelName}, response length: ${text.length}`);
+                    console.log(`[DUMMY] Success with ${modelName}, length: ${text.length}`);
                     break;
                 }
             } catch (err: any) {
-                const msg = err.message || String(err);
-                console.warn(`Failed with model ${modelName}:`, msg);
-                modelErrors.push(`${modelName}: ${msg}`);
+                console.warn(`[DUMMY] Model ${modelName} failed:`, err.message);
+                lastError = `${modelName}: ${err.message}`;
             }
         }
 
         if (!text) {
-            console.error('All models failed:', modelErrors);
             return NextResponse.json({
-                error: 'Failed to generate dummy data from AI',
-                details: modelErrors,
+                error: `Failed to generate dummy data. Last error: ${lastError}`
             }, { status: 500 });
         }
 
-        if (!text) {
-            return NextResponse.json({ error: 'Failed to generate dummy data from AI' }, { status: 500 });
-        }
-
-        // Parse JSON — strip markdown if present
+        // Parse JSON — robust extraction like the flowchart route
         let jsonString = text.trim();
-        if (jsonString.startsWith('```')) {
-            jsonString = jsonString.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        }
         const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-        if (jsonMatch) jsonString = jsonMatch[0];
+        if (jsonMatch) {
+            jsonString = jsonMatch[0];
+            jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+        }
 
         let data: Record<string, any[]>;
         try {
             data = JSON.parse(jsonString);
         } catch (e: any) {
-            console.error('Failed to parse dummy data JSON:', e.message, '\nRaw:', text.substring(0, 500));
-            return NextResponse.json({ error: 'AI returned invalid JSON', raw: text.substring(0, 500) }, { status: 500 });
+            console.warn('[DUMMY] JSON parse failed, attempting repair. Preview:', text.substring(text.length - 100));
+
+            // Basic JSON Repair for Truncation
+            // 1. Try to close the last string if open
+            if ((jsonString.match(/"/g) || []).length % 2 !== 0) jsonString += '"';
+            // 2. Try to close the last object/array/root
+            let braceCount = (jsonString.match(/\{/g) || []).length - (jsonString.match(/\}/g) || []).length;
+            let bracketCount = (jsonString.match(/\[/g) || []).length - (jsonString.match(/\]/g) || []).length;
+
+            while (bracketCount > 0) { jsonString += ']'; bracketCount--; }
+            while (braceCount > 0) { jsonString += '}'; braceCount--; }
+
+            try {
+                data = JSON.parse(jsonString);
+                console.log('[DUMMY] JSON repair successful.');
+            } catch (repairError) {
+                console.error('[DUMMY] JSON repair failed.');
+                return NextResponse.json({
+                    error: `AI generated invalid JSON. Try with fewer rows or a simpler schema. Raw preview: ${text.substring(0, 100)}`
+                }, { status: 500 });
+            }
         }
 
         // Increment usage after successful generation
@@ -169,7 +203,7 @@ Return ONLY the raw JSON object, no markdown code blocks, no explanation.
         });
 
     } catch (error: any) {
-        console.error('Dummy data generation error:', error);
+        console.error('[DUMMY] Fatal error:', error);
         return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
     }
 }

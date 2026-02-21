@@ -18,12 +18,13 @@ interface DummyDataPanelProps {
     remainingDummy: number;
     maxRows: number;
     onGenerate: (rowCount: number) => void;
+    onAppend: (rowCount: number) => void;
     onExportSQLWithData: () => void;
     onClose: () => void;
     onDataChange: (data: Record<string, Record<string, any>[]>) => void; // for edits
 }
 
-const ROW_COUNT_OPTIONS = [10, 25, 50, 100, 200, 500, 1000, 5000];
+const ROW_COUNT_OPTIONS = [10, 25, 50];
 
 export default function DummyDataPanel({
     schema,
@@ -33,6 +34,7 @@ export default function DummyDataPanel({
     remainingDummy,
     maxRows,
     onGenerate,
+    onAppend,
     onExportSQLWithData,
     onClose,
     onDataChange,
@@ -119,8 +121,8 @@ export default function DummyDataPanel({
                 </div>
                 <div className="flex items-center gap-2">
                     <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${planRole === 'developer' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                            planRole === 'pro' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' :
-                                'bg-white/5 border-white/10 text-[var(--text-muted)]'
+                        planRole === 'pro' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' :
+                            'bg-white/5 border-white/10 text-[var(--text-muted)]'
                         }`}>{planRole}</span>
                     <button
                         onClick={onClose}
@@ -136,8 +138,8 @@ export default function DummyDataPanel({
                 {/* Usage */}
                 {!isUnlimited && (
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ${canGenerate
-                            ? 'bg-violet-500/5 border border-violet-500/10 text-violet-300'
-                            : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
+                        ? 'bg-violet-500/5 border border-violet-500/10 text-violet-300'
+                        : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
                         }`}>
                         {canGenerate ? (
                             <><Zap size={12} /><span>{remainingDummy} generation{remainingDummy !== 1 ? 's' : ''} left this week</span></>
@@ -163,8 +165,8 @@ export default function DummyDataPanel({
                                 key={n}
                                 onClick={() => setRowCount(n)}
                                 className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${rowCount === n
-                                        ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/20'
-                                        : 'bg-white/[0.03] border border-white/5 text-[var(--text-muted)] hover:text-white hover:bg-white/5'
+                                    ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/20'
+                                    : 'bg-white/[0.03] border border-white/5 text-[var(--text-muted)] hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 {n >= 1000 ? `${n / 1000}k` : n}
@@ -174,16 +176,29 @@ export default function DummyDataPanel({
                 </div>
 
                 {/* Generate button */}
-                <button
-                    onClick={() => canGenerate && !isGenerating && onGenerate(rowCount)}
-                    disabled={isGenerating || !canGenerate || schema.tables.length === 0}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-violet-500 hover:bg-violet-600 text-white shadow-lg shadow-violet-500/20 disabled:bg-white/5 disabled:text-[var(--text-muted)] disabled:shadow-none"
-                >
-                    {isGenerating
-                        ? <><Loader2 size={13} className="animate-spin" /><span>Generating...</span></>
-                        : <><RefreshCw size={13} /><span>{dummyData ? 'Regenerate' : 'Generate'} {rowCount} Rows</span></>
-                    }
-                </button>
+                <div className="flex flex-col gap-2">
+                    <button
+                        onClick={() => canGenerate && !isGenerating && onGenerate(rowCount)}
+                        disabled={isGenerating || !canGenerate || schema.tables.length === 0}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-violet-500 hover:bg-violet-600 text-white shadow-lg shadow-violet-500/20 disabled:bg-white/5 disabled:text-[var(--text-muted)] disabled:shadow-none"
+                    >
+                        {isGenerating
+                            ? <><Loader2 size={13} className="animate-spin" /><span>Generating...</span></>
+                            : <><RefreshCw size={13} /><span>{dummyData ? 'Regenerate All' : 'Generate'} {rowCount} Rows</span></>
+                        }
+                    </button>
+
+                    {dummyData && (
+                        <button
+                            onClick={() => canGenerate && !isGenerating && onAppend(rowCount)}
+                            disabled={isGenerating || !canGenerate}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 bg-white/5 hover:bg-white/10 border border-white/10 text-white"
+                        >
+                            <Sparkles size={13} className="text-violet-400" />
+                            <span>Add {rowCount} More Rows</span>
+                        </button>
+                    )}
+                </div>
 
                 {schema.tables.length === 0 && (
                     <div className="flex items-center gap-2 text-[10px] text-amber-400/70">
@@ -203,8 +218,8 @@ export default function DummyDataPanel({
                                 key={tbl}
                                 onClick={() => { setActiveTable(tbl); setEditingCell(null); }}
                                 className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${displayTable === tbl
-                                        ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300'
-                                        : 'bg-white/[0.02] border border-white/5 text-[var(--text-muted)] hover:text-white'
+                                    ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300'
+                                    : 'bg-white/[0.02] border border-white/5 text-[var(--text-muted)] hover:text-white'
                                     }`}
                             >
                                 <Table2 size={10} />
@@ -245,8 +260,8 @@ export default function DummyDataPanel({
                                                         <td
                                                             key={col}
                                                             className={`border border-white/[0.04] transition-colors relative ${isEditing
-                                                                    ? 'bg-violet-500/10 border-violet-500/30'
-                                                                    : 'hover:bg-white/[0.03] cursor-pointer'
+                                                                ? 'bg-violet-500/10 border-violet-500/30'
+                                                                : 'hover:bg-white/[0.03] cursor-pointer'
                                                                 }`}
                                                             onClick={() => !isEditing && startEdit(rowIdx, col, val)}
                                                         >

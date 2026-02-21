@@ -389,39 +389,69 @@ function EditorContent() {
     }, [schema, project?.name]);
 
     // ── Dummy Data ──
-    const handleGenerateDummy = useCallback(async (rowCount: number) => {
+    const handleGenerateDummy = useCallback(async (rowCount: number, isAppend: boolean = false) => {
         if (schema.tables.length === 0) return;
         setIsGeneratingDummy(true);
+
+        // Calculate last IDs and gather existing data samples for uniqueness
+        const lastIds: Record<string, number> = {};
+        const existingData: Record<string, any[]> = {};
+
+        if (isAppend && dummyData) {
+            Object.entries(dummyData).forEach(([tbl, rows]) => {
+                // Get sample of existing data (max 3 rows) for uniqueness context
+                existingData[tbl] = rows.slice(0, 3);
+
+                const tableSchema = schema.tables.find(t => t.name === tbl);
+                const pkCol = tableSchema?.columns.find(c => c.isPrimaryKey && c.type.toLowerCase().includes('int'));
+                if (pkCol && rows.length > 0) {
+                    const ids = rows.map(r => Number(r[pkCol.name])).filter(id => !isNaN(id));
+                    if (ids.length > 0) {
+                        const maxId = Math.max(...ids);
+                        lastIds[tbl] = maxId + 1;
+                    }
+                }
+            });
+        }
+
         try {
             const res = await fetchWithAuth('/api/generate-dummy', {
                 method: 'POST',
-                body: JSON.stringify({ schema, rowCount }),
+                body: JSON.stringify({ schema, rowCount, lastIds, existingData }),
             });
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
                 if (res.status === 429) {
-                    alert(errData.error || 'Weekly limit reached. Upgrade to Pro for more generations.');
+                    alert(errData.error || 'Weekly limit reached.');
                     return;
                 }
-                throw new Error(errData.error || res.statusText);
+                throw new Error(errData.message || errData.error || res.statusText);
             }
 
             const data = await res.json();
-            const newDummyData = data.data;
-            setDummyData(newDummyData);
-            // Save generated data to DB
-            saveProject(projectId, { dummyData: newDummyData });
-            // Broadcast to collaborators
-            broadcastDummyDataChange(newDummyData);
+            const newGenerated = data.data;
+
+            let finalData = newGenerated;
+            if (isAppend && dummyData) {
+                // Merge with existing
+                finalData = { ...dummyData };
+                Object.keys(newGenerated).forEach(tbl => {
+                    finalData[tbl] = [...(finalData[tbl] || []), ...newGenerated[tbl]];
+                });
+            }
+
+            setDummyData(finalData);
+            saveProject(projectId, { dummyData: finalData });
+            broadcastDummyDataChange(finalData);
             planState.refresh();
         } catch (error: any) {
             console.error('Failed to generate dummy data:', error);
-            alert(`Failed to generate dummy data: ${error.message}`);
+            alert(`Failed to generate: ${error.message}`);
         } finally {
             setIsGeneratingDummy(false);
         }
-    }, [schema, planState, projectId, broadcastDummyDataChange]);
+    }, [schema, planState, projectId, broadcastDummyDataChange, dummyData]);
 
     // Handle cell edits — debounced save (500ms) + immediate broadcast
     const handleDummyDataChange = useCallback((updated: Record<string, Record<string, any>[]>) => {
@@ -801,23 +831,46 @@ function EditorContent() {
                         elementsSelectable={true}
                         connectionMode={ConnectionMode.Loose}
                     >
-                        <LiveCursors cursors={cursors} lastMessages={lastMessages} />
-
-                        <Background
-                            variant={BackgroundVariant.Dots}
-                            gap={24}
-                            size={1}
-                            color="#27272a"
-                        />
-                        <Controls className="!bg-[#18181b] !border-white/10 !fill-white" />
+                        <Background color="#27272a" variant={BackgroundVariant.Dots} />
+                        <Controls />
                         <MiniMap
-                            className="!bg-[#18181b] !border-white/10"
-                            nodeStrokeColor="#3b82f6"
-                            nodeColor="#1d4ed8"
-                            maskColor="rgba(0, 0, 0, 0.4)"
+                            nodeStrokeColor={(n) => {
+                                if (n.type === 'tableNode') return '#818cf8';
+                                if (n.type === 'noteNode') return '#fbbf24';
+                                return '#3f3f46';
+                            }}
+                            nodeColor={(n) => {
+                                if (n.type === 'tableNode') return 'rgba(129, 140, 248, 0.1)';
+                                if (n.type === 'noteNode') return 'rgba(251, 191, 36, 0.1)';
+                                return 'rgba(63, 63, 70, 0.1)';
+                            }}
+                            maskColor="rgba(0, 0, 0, 0.3)"
+                            className="!bg-[#18181b] !border-white/5 !rounded-xl overflow-hidden"
                         />
+                        <LiveCursors cursors={cursors} lastMessages={lastMessages} />
+                        <Panel position="top-right" className="flex flex-col gap-2">
+                        </Panel>
                     </ReactFlow>
                 </div>
+
+                {/* Dummy Data Panel */}
+                <AnimatePresence>
+                    {showDummyPanel && (
+                        <DummyDataPanel
+                            schema={schema}
+                            dummyData={dummyData}
+                            isGenerating={isGeneratingDummy}
+                            planRole={planState.plan?.role || 'free'}
+                            remainingDummy={planState.remaining.dummy}
+                            maxRows={50}
+                            onGenerate={(count: number) => handleGenerateDummy(count, false)}
+                            onAppend={(count: number) => handleGenerateDummy(count, true)}
+                            onExportSQLWithData={handleExportSQLWithData}
+                            onClose={() => setShowDummyPanel(false)}
+                            onDataChange={handleDummyDataChange}
+                        />
+                    )}
+                </AnimatePresence>
 
                 {/* Notes Panel */}
                 {user && (
@@ -838,24 +891,6 @@ function EditorContent() {
                         )}
                     </AnimatePresence>
                 )}
-
-                {/* Dummy Data Panel */}
-                <AnimatePresence>
-                    {showDummyPanel && (
-                        <DummyDataPanel
-                            schema={schema}
-                            dummyData={dummyData}
-                            isGenerating={isGeneratingDummy}
-                            planRole={planState.plan?.role || 'free'}
-                            remainingDummy={planState.remaining.dummy}
-                            maxRows={planState.limits.maxDummyRows}
-                            onGenerate={handleGenerateDummy}
-                            onExportSQLWithData={handleExportSQLWithData}
-                            onClose={() => setShowDummyPanel(false)}
-                            onDataChange={handleDummyDataChange}
-                        />
-                    )}
-                </AnimatePresence>
             </div>
 
             <InviteModal
