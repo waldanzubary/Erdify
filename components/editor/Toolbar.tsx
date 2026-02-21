@@ -14,6 +14,9 @@ import {
     UserPlus,
     Database,
     Sparkles,
+    Table2,
+    Lock,
+    Crown,
 } from 'lucide-react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
@@ -30,6 +33,7 @@ interface ToolbarProps {
     onExportPng: () => void;
     onExportJson: () => void;
     onExportSql: () => void;
+    onExportSqlWithData?: () => void;
     onUpload: () => void;
     onlineUsers?: OnlineUser[];
     myColor?: string;
@@ -46,6 +50,13 @@ interface ToolbarProps {
     onViewModeChange?: (mode: 'erd' | 'flowchart') => void;
     onGenerateFlowchart?: () => void;
     isGeneratingFlowchart?: boolean;
+    // Dummy data
+    showDummyPanel?: boolean;
+    onToggleDummyPanel?: () => void;
+    remainingDummy?: number;
+    remainingFlowcharts?: number;
+    planRole?: string;
+    hasDummyData?: boolean;
 }
 
 export default function Toolbar({
@@ -57,6 +68,7 @@ export default function Toolbar({
     onExportPng,
     onExportJson,
     onExportSql,
+    onExportSqlWithData,
     onUpload,
     onlineUsers = [],
     myColor = '#6366f1',
@@ -73,6 +85,12 @@ export default function Toolbar({
     onViewModeChange,
     onGenerateFlowchart,
     isGeneratingFlowchart = false,
+    showDummyPanel = false,
+    onToggleDummyPanel,
+    remainingDummy = 0,
+    remainingFlowcharts = 0,
+    planRole = 'free',
+    hasDummyData = false,
 }: ToolbarProps) {
     const [showExport, setShowExport] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -178,8 +196,36 @@ export default function Toolbar({
                         <span className="text-xs font-bold">
                             {isGeneratingFlowchart ? 'Generating...' : 'Regenerate'}
                         </span>
+                        {planRole !== 'developer' && remainingFlowcharts >= 0 && (
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ml-1 ${remainingFlowcharts > 0 ? 'bg-indigo-500/20 text-indigo-300' : 'bg-rose-500/20 text-rose-300'
+                                }`}>
+                                {remainingFlowcharts > 0 ? remainingFlowcharts : '0'}
+                            </span>
+                        )}
                     </button>
                 )}
+
+                {/* Dummy Data Button */}
+                <button
+                    onClick={onToggleDummyPanel}
+                    className={`relative flex items-center gap-2 px-4 py-1.5 border rounded-xl transition-all ${showDummyPanel
+                            ? 'bg-violet-500/20 border-violet-500/30 text-violet-300'
+                            : 'bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/20 text-violet-400'
+                        }`}
+                >
+                    <Database size={14} />
+                    <span className="text-xs font-bold">Dummy Data</span>
+                    {planRole !== 'developer' && (
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${remainingDummy > 0 ? 'bg-violet-500/20 text-violet-300' : 'bg-rose-500/20 text-rose-300'
+                            }`}>
+                            {remainingDummy > 0 ? remainingDummy : <Lock size={8} />}
+                        </span>
+                    )}
+                    {planRole === 'developer' && (
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">∞</span>
+                    )}
+                </button>
+
                 <div className="w-px h-6 bg-white/5" />
 
                 <PresenceAvatars users={onlineUsers} myColor={myColor} />
@@ -302,6 +348,18 @@ export default function Toolbar({
                                     <span>Export SQL</span>
                                     <Database size={14} className="text-purple-400" />
                                 </button>
+                                {hasDummyData && (
+                                    <button
+                                        onClick={() => {
+                                            onExportSqlWithData?.();
+                                            setShowExport(false);
+                                        }}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)] hover:text-white hover:bg-white/5 transition-all"
+                                    >
+                                        <span>SQL + Data</span>
+                                        <Table2 size={14} className="text-violet-400" />
+                                    </button>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>

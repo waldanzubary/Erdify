@@ -29,8 +29,8 @@ export default function Navbar() {
     return (
         <nav
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled
-                    ? 'py-4 px-6'
-                    : 'py-6 px-6 bg-transparent'
+                ? 'py-4 px-6'
+                : 'py-6 px-6 bg-transparent'
                 }`}
         >
             <div className={`
@@ -93,8 +93,19 @@ export default function Navbar() {
                                 href="/profile"
                                 className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300 group"
                             >
-                                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500 group-hover:text-white transition-all">
-                                    <User size={14} className="text-indigo-400 group-hover:text-white" />
+                                <div className="w-8 h-8 rounded-xl overflow-hidden border border-indigo-500/20 shrink-0">
+                                    {user.user_metadata?.avatar_url ? (
+                                        <img
+                                            src={user.user_metadata.avatar_url}
+                                            alt={user.user_metadata?.full_name || 'Profile'}
+                                            className="w-full h-full object-cover"
+                                            referrerPolicy="no-referrer"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500 transition-all">
+                                            <User size={14} className="text-indigo-400 group-hover:text-white" />
+                                        </div>
+                                    )}
                                 </div>
                                 <span className="text-xs font-bold text-white/70 group-hover:text-white transition-colors">
                                     {user.user_metadata?.full_name || user.email?.split('@')[0]}
@@ -159,8 +170,8 @@ export default function Navbar() {
                                         href={link.href}
                                         onClick={() => setMobileOpen(false)}
                                         className={`px-6 py-4 rounded-[1.5rem] text-lg font-black tracking-tight flex items-center justify-between transition-all ${pathname === link.href
-                                                ? 'bg-white/5 text-white border border-white/10 shadow-lg'
-                                                : 'text-white/40 hover:text-white hover:bg-white/[0.02]'
+                                            ? 'bg-white/5 text-white border border-white/10 shadow-lg'
+                                            : 'text-white/40 hover:text-white hover:bg-white/[0.02]'
                                             }`}
                                     >
                                         {link.label}

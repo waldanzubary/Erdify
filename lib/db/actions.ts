@@ -1,9 +1,11 @@
 'use server';
 
 import { db } from './index';
-import { projects, notes, projectMembers } from './schema';
+import { projects, notes, projectMembers, userPlans, type UserPlan } from './schema';
 import { eq, desc } from 'drizzle-orm';
 import type { ERSchema, ProjectMeta } from '../types';
+import type { PlanRole } from '../plans';
+import { PLAN_LIMITS, canUseFeature } from '../plans';
 
 export async function createProject(
     userId: string,
@@ -27,7 +29,7 @@ export async function loadProject(projectId: string) {
 
 export async function saveProject(
     projectId: string,
-    data: Partial<{ name: string; description: string; schema: ERSchema; flowchart: { nodes: any[]; edges: any[] } }>
+    data: Partial<{ name: string; description: string; schema: ERSchema; flowchart: { nodes: any[]; edges: any[] }; dummyData: Record<string, Record<string, any>[]> }>
 ) {
     await db.update(projects).set({
         ...data,
@@ -190,4 +192,90 @@ export async function updateNote(
     data: Partial<{ content: string; status: string; positionX: number; positionY: number }>
 ) {
     await db.update(notes).set(data).where(eq(notes.id, noteId));
+}
+
+// ── User Plans / Usage ──
+
+export async function getUserPlan(userId: string) {
+    const [plan] = await db.select().from(userPlans).where(eq(userPlans.userId, userId));
+    return plan || null;
+}
+
+export async function upsertUserPlan(userId: string, role: PlanRole = 'free'): Promise<UserPlan> {
+    const [plan] = await db.insert(userPlans).values({
+        userId,
+        role,
+    }).onConflictDoUpdate({
+        target: userPlans.userId,
+        set: { role },
+    }).returning();
+    return plan;
+}
+
+/**
+ * Checks if a week has passed since weekStart and resets counters if so.
+ */
+function isNewWeek(weekStart: Date): boolean {
+    const now = new Date();
+    const msSinceStart = now.getTime() - weekStart.getTime();
+    return msSinceStart >= 7 * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Returns { allowed, plan } and automatically resets weekly counters if needed.
+ */
+export async function checkUsage(
+    userId: string,
+    feature: 'flowchart' | 'dummy'
+): Promise<{ allowed: boolean; reason?: string; plan: any }> {
+    // Ensure plan exists
+    let plan = await getUserPlan(userId);
+    if (!plan) {
+        plan = await upsertUserPlan(userId, 'free');
+    }
+
+    // Reset counters if new week
+    if (isNewWeek(plan.weekStart)) {
+        await db.update(userPlans).set({
+            flowchartCountWeek: 0,
+            dummyCountWeek: 0,
+            weekStart: new Date(),
+        }).where(eq(userPlans.userId, userId));
+        plan = { ...plan, flowchartCountWeek: 0, dummyCountWeek: 0 };
+    }
+
+    const limits = PLAN_LIMITS[plan.role as PlanRole] || PLAN_LIMITS.free;
+
+    if (feature === 'flowchart') {
+        const allowed = canUseFeature(plan.flowchartCountWeek, limits.flowchartsPerWeek);
+        return {
+            allowed,
+            reason: allowed ? undefined : `Free plan allows ${limits.flowchartsPerWeek} flowchart generations per week. Upgrade to Pro for more.`,
+            plan,
+        };
+    } else {
+        const allowed = canUseFeature(plan.dummyCountWeek, limits.dummyPerWeek);
+        return {
+            allowed,
+            reason: allowed ? undefined : `Free plan allows ${limits.dummyPerWeek} dummy data generation per week. Upgrade to Pro for more.`,
+            plan,
+        };
+    }
+}
+
+export async function incrementUsage(userId: string, feature: 'flowchart' | 'dummy') {
+    const plan = await getUserPlan(userId);
+    if (!plan) return;
+    // Don't increment for developer role
+    if (plan.role === 'developer') return;
+
+    if (feature === 'flowchart') {
+        await db.update(userPlans).set({
+            flowchartCountWeek: plan.flowchartCountWeek + 1,
+        }).where(eq(userPlans.userId, userId));
+    } else {
+        await db.update(userPlans).set({
+            dummyCountWeek: plan.dummyCountWeek + 1,
+        }).where(eq(userPlans.userId, userId));
+    }
 }

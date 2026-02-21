@@ -22,18 +22,21 @@ import {
 import { supabase } from '@/lib/supabase';
 import { loadProject, saveProject, listNotes, createNote, deleteNote, updateNote, getProjectAccess, updatePublicRole, recordAccess } from '@/lib/db/actions';
 import CreateNoteModal from '@/components/editor/CreateNoteModal';
+import DummyDataPanel from '@/components/editor/DummyDataPanel';
 import '@xyflow/react/dist/style.css';
 
 import { useProject } from '@/hooks/useProject';
 import { useERSchema } from '@/hooks/useERSchema';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealtimeCollaboration } from '@/hooks/useRealtimeCollaboration';
+import { usePlan, fetchWithAuth } from '@/hooks/usePlan';
 import { schemaToFlow } from '@/utils/erToFlow';
 import { getAutoLayout } from '@/utils/autoLayout';
 import { parseSQL } from '@/utils/sqlParser';
 import { exportToPng } from '@/utils/exportPng';
 import { exportToJson } from '@/utils/exportJson';
 import { exportToSQL, generateSQL } from '@/utils/exportSql';
+import { exportToSQLWithData } from '@/utils/exportSqlWithData';
 
 import TableNode from '@/components/editor/TableNode';
 import NoteNode from '@/components/editor/NoteNode';
@@ -85,6 +88,13 @@ function EditorContent() {
     const [flowNodes, setFlowNodes, onFlowNodesChange] = useNodesState<Node>([]);
     const [flowEdges, setFlowEdges, onFlowEdgesChange] = useEdgesState<Edge>([]);
     const [isGeneratingFlowchart, setIsGeneratingFlowchart] = useState(false);
+
+    // Dummy Data State
+    const [showDummyPanel, setShowDummyPanel] = useState(false);
+    const [dummyData, setDummyData] = useState<Record<string, Record<string, any>[]> | null>(null);
+    const [isGeneratingDummy, setIsGeneratingDummy] = useState(false);
+    const planState = usePlan();
+    const dummySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const flowRef = useRef<HTMLDivElement>(null);
     const isRemoteUpdateRef = useRef(false);
@@ -192,6 +202,10 @@ function EditorContent() {
         setProject(updatedProject);
     }, [setProject]);
 
+    const handleRemoteDummyDataChange = useCallback((incoming: Record<string, Record<string, any>[]>) => {
+        setDummyData(incoming);
+    }, []);
+
     // Realtime collaboration
     const {
         onlineUsers,
@@ -209,6 +223,7 @@ function EditorContent() {
         broadcastFlowchartChange,
         broadcastViewModeChange,
         broadcastProjectUpdate,
+        broadcastDummyDataChange,
     } = useRealtimeCollaboration({
         projectId,
         userId: user?.id || '',
@@ -222,14 +237,18 @@ function EditorContent() {
         onRemoteFlowchartChange: handleRemoteFlowchartChange,
         onRemoteViewModeChange: handleRemoteViewModeChange,
         onRemoteProjectUpdate: handleRemoteProjectUpdate,
+        onRemoteDummyDataChange: handleRemoteDummyDataChange,
     });
-    // Initialize from project
+    // Initialize from project (schema, flowchart, and dummyData)
     useEffect(() => {
         if (project && !initialized) {
             replaceSchema(project.schema);
             if (project.flowchart) {
                 setFlowNodes(project.flowchart.nodes || []);
                 setFlowEdges(project.flowchart.edges || []);
+            }
+            if ((project as any).dummyData) {
+                setDummyData((project as any).dummyData);
             }
             setInitialized(true);
         }
@@ -368,6 +387,57 @@ function EditorContent() {
     const handleExportSQL = useCallback(() => {
         exportToSQL(schema, project?.name || 'erdify-database');
     }, [schema, project?.name]);
+
+    // ── Dummy Data ──
+    const handleGenerateDummy = useCallback(async (rowCount: number) => {
+        if (schema.tables.length === 0) return;
+        setIsGeneratingDummy(true);
+        try {
+            const res = await fetchWithAuth('/api/generate-dummy', {
+                method: 'POST',
+                body: JSON.stringify({ schema, rowCount }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                if (res.status === 429) {
+                    alert(errData.error || 'Weekly limit reached. Upgrade to Pro for more generations.');
+                    return;
+                }
+                throw new Error(errData.error || res.statusText);
+            }
+
+            const data = await res.json();
+            const newDummyData = data.data;
+            setDummyData(newDummyData);
+            // Save generated data to DB
+            saveProject(projectId, { dummyData: newDummyData });
+            // Broadcast to collaborators
+            broadcastDummyDataChange(newDummyData);
+            planState.refresh();
+        } catch (error: any) {
+            console.error('Failed to generate dummy data:', error);
+            alert(`Failed to generate dummy data: ${error.message}`);
+        } finally {
+            setIsGeneratingDummy(false);
+        }
+    }, [schema, planState, projectId, broadcastDummyDataChange]);
+
+    // Handle cell edits — debounced save (500ms) + immediate broadcast
+    const handleDummyDataChange = useCallback((updated: Record<string, Record<string, any>[]>) => {
+        setDummyData(updated);
+        broadcastDummyDataChange(updated);
+        // Debounced save to DB
+        if (dummySaveTimerRef.current) clearTimeout(dummySaveTimerRef.current);
+        dummySaveTimerRef.current = setTimeout(() => {
+            saveProject(projectId, { dummyData: updated });
+        }, 500);
+    }, [projectId, broadcastDummyDataChange]);
+
+    const handleExportSQLWithData = useCallback(() => {
+        if (!dummyData) return;
+        exportToSQLWithData(schema, dummyData, project?.name || 'erdify-database');
+    }, [schema, dummyData, project?.name]);
 
     const handleAddNote = useCallback(async () => {
         setIsCreateNoteModalOpen(true);
@@ -651,6 +721,7 @@ function EditorContent() {
                 onExportPng={handleExportPng}
                 onExportJson={handleExportJson}
                 onExportSql={handleExportSQL}
+                onExportSqlWithData={handleExportSQLWithData}
                 onToggleNotes={() => setShowNotes(!showNotes)}
                 onAddNote={handleAddNote}
                 onInvite={() => setShowInvite(true)}
@@ -671,6 +742,12 @@ function EditorContent() {
                 }}
                 onGenerateFlowchart={handleGenerateFlowchart}
                 isGeneratingFlowchart={isGeneratingFlowchart}
+                showDummyPanel={showDummyPanel}
+                onToggleDummyPanel={() => setShowDummyPanel(prev => !prev)}
+                remainingDummy={planState.remaining.dummy}
+                remainingFlowcharts={planState.remaining.flowcharts}
+                planRole={planState.plan?.role || 'free'}
+                hasDummyData={!!dummyData && Object.keys(dummyData).length > 0}
             />
 
             <div className="flex-1 flex overflow-hidden relative">
@@ -761,6 +838,24 @@ function EditorContent() {
                         )}
                     </AnimatePresence>
                 )}
+
+                {/* Dummy Data Panel */}
+                <AnimatePresence>
+                    {showDummyPanel && (
+                        <DummyDataPanel
+                            schema={schema}
+                            dummyData={dummyData}
+                            isGenerating={isGeneratingDummy}
+                            planRole={planState.plan?.role || 'free'}
+                            remainingDummy={planState.remaining.dummy}
+                            maxRows={planState.limits.maxDummyRows}
+                            onGenerate={handleGenerateDummy}
+                            onExportSQLWithData={handleExportSQLWithData}
+                            onClose={() => setShowDummyPanel(false)}
+                            onDataChange={handleDummyDataChange}
+                        />
+                    )}
+                </AnimatePresence>
             </div>
 
             <InviteModal

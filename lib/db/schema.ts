@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, uuid, real } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, jsonb, uuid, real, integer } from 'drizzle-orm/pg-core';
 import type { ERSchema } from '../types';
 
 export const projects = pgTable('projects', {
@@ -7,6 +7,7 @@ export const projects = pgTable('projects', {
     description: text('description'),
     schema: jsonb('schema').$type<ERSchema>().notNull(),
     flowchart: jsonb('flowchart').$type<{ nodes: any[]; edges: any[] }>(),
+    dummyData: jsonb('dummy_data').$type<Record<string, Record<string, any>[]>>(),
     userId: text('user_id').notNull(),
     publicRole: text('public_role').default('view').notNull(), // 'view' or 'edit'
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -33,7 +34,18 @@ export const notes = pgTable('notes', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const userPlans = pgTable('user_plans', {
+    userId: text('user_id').primaryKey(),
+    role: text('role').default('free').notNull(), // 'free' | 'pro' | 'developer'
+    flowchartCountWeek: integer('flowchart_count_week').default(0).notNull(),
+    dummyCountWeek: integer('dummy_count_week').default(0).notNull(),
+    weekStart: timestamp('week_start').defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type Note = typeof notes.$inferSelect;
 export type NewNote = typeof notes.$inferInsert;
+export type UserPlan = typeof userPlans.$inferSelect;
+export type NewUserPlan = typeof userPlans.$inferInsert;

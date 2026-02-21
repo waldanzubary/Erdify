@@ -55,6 +55,7 @@ interface UseRealtimeCollaborationOptions {
     onRemoteFlowchartChange?: (flowchart: { nodes: any[]; edges: any[] }) => void;
     onRemoteViewModeChange?: (viewMode: 'erd' | 'flowchart') => void;
     onRemoteProjectUpdate?: (project: any) => void;
+    onRemoteDummyDataChange?: (dummyData: Record<string, Record<string, any>[]>) => void;
 }
 
 export function useRealtimeCollaboration({
@@ -70,6 +71,7 @@ export function useRealtimeCollaboration({
     onRemoteFlowchartChange,
     onRemoteViewModeChange,
     onRemoteProjectUpdate,
+    onRemoteDummyDataChange,
 }: UseRealtimeCollaborationOptions) {
     const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
     const [cursors, setCursors] = useState<Map<string, CursorPosition>>(new Map());
@@ -93,6 +95,7 @@ export function useRealtimeCollaboration({
         onRemoteFlowchartChange,
         onRemoteViewModeChange,
         onRemoteProjectUpdate,
+        onRemoteDummyDataChange,
     });
 
     useEffect(() => {
@@ -106,8 +109,9 @@ export function useRealtimeCollaboration({
             onRemoteFlowchartChange,
             onRemoteViewModeChange,
             onRemoteProjectUpdate,
+            onRemoteDummyDataChange,
         };
-    }, [onRemoteSchemaChange, onRemoteNoteAdd, onRemoteNoteUpdate, onRemoteNoteChange, onRemoteNodeMove, onRemoteNameChange, onRemoteFlowchartChange, onRemoteViewModeChange, onRemoteProjectUpdate]);
+    }, [onRemoteSchemaChange, onRemoteNoteAdd, onRemoteNoteUpdate, onRemoteNoteChange, onRemoteNodeMove, onRemoteNameChange, onRemoteFlowchartChange, onRemoteViewModeChange, onRemoteProjectUpdate, onRemoteDummyDataChange]);
 
     useEffect(() => {
         if (!projectId || !userId) return;
@@ -219,6 +223,10 @@ export function useRealtimeCollaboration({
                 .on('broadcast', { event: 'project-update' }, ({ payload }) => {
                     if (payload.userId === userId || !active) return;
                     handlersRef.current.onRemoteProjectUpdate?.(payload.project);
+                })
+                .on('broadcast', { event: 'dummy-data-change' }, ({ payload }) => {
+                    if (payload.userId === userId || !active) return;
+                    handlersRef.current.onRemoteDummyDataChange?.(payload.dummyData);
                 });
 
             broadcastChannel.subscribe(async (s) => {
@@ -390,6 +398,18 @@ export function useRealtimeCollaboration({
         [userId, status]
     );
 
+    const broadcastDummyDataChange = useCallback(
+        (dummyData: Record<string, Record<string, any>[]>) => {
+            if (status !== 'CONNECTED' || !broadcastChannelRef.current) return;
+            broadcastChannelRef.current.send({
+                type: 'broadcast',
+                event: 'dummy-data-change',
+                payload: { userId, dummyData },
+            });
+        },
+        [userId, status]
+    );
+
     return {
         onlineUsers,
         cursors,
@@ -406,5 +426,6 @@ export function useRealtimeCollaboration({
         broadcastFlowchartChange,
         broadcastViewModeChange,
         broadcastProjectUpdate,
+        broadcastDummyDataChange,
     };
 }
